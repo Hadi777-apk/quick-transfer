@@ -36,7 +36,13 @@ Runtime data is written under `data/` and is excluded from Git.
 docker compose up -d --build
 ```
 
-The container listens on `127.0.0.1:3300` for a local reverse proxy. Uploaded files and share metadata persist in `./data`.
+The container listens on `127.0.0.1:3300` for a local reverse proxy. Uploaded files and share metadata persist in the Docker volume `app-data`.
+
+After deployment, run a self-cleaning production smoke test with:
+
+```bash
+npm run smoke -- https://your-domain.example
+```
 
 ## Project status and attribution
 

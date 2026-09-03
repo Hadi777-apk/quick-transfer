@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "express": "5.2.1",

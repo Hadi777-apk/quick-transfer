@@ -1046,10 +1046,6 @@ textarea:focus { border-color: var(--primary); }
     }
 }
 
-.file-dropzone:focus-visible {
-    outline: 3px solid rgba(37, 99, 235, 0.3);
-    outline-offset: 2px;
-}
 * {
     -webkit-tap-highlight-color: transparent; /* 去掉点击时的灰色背景块 */
 }

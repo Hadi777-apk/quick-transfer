@@ -4,7 +4,8 @@ let currentMode = 'text'; // 可选值: text | file | image | receive
 // === 1. 初始化逻辑 (页面加载时执行) ===
 window.addEventListener('DOMContentLoaded', () => {
     // A. 法律弹窗检查
-    if (!localStorage.getItem('legalAgreed')) {
+    const legalAgreed = localStorage.getItem('legalAgreed');
+    if (!legalAgreed) {
         document.getElementById('legal-modal').style.display = 'flex';
     }
 
@@ -34,22 +35,8 @@ window.addEventListener('DOMContentLoaded', () => {
             handleSubmit();
         }
     });
-    textInput.addEventListener('keydown', event => {
-        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-            event.preventDefault();
-            handleSubmit();
-        }
-    });
-    document.querySelectorAll('.file-dropzone').forEach(dropzone => {
-        dropzone.tabIndex = 0;
-        dropzone.setAttribute('role', 'button');
-        dropzone.addEventListener('keydown', event => {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                dropzone.click();
-            }
-        });
-    });
+
+    if (!codeFromUrl && legalAgreed) textInput.focus();
 
     imageDropzone.addEventListener('dragover', event => {
         event.preventDefault();
@@ -73,6 +60,8 @@ window.addEventListener('DOMContentLoaded', () => {
 function closeLegalModal() {
     localStorage.setItem('legalAgreed', 'true');
     document.getElementById('legal-modal').style.display = 'none';
+    if (currentMode === 'text') document.getElementById('input-text-val').focus();
+    if (currentMode === 'receive') document.getElementById('input-code-val').focus();
 }
 
 // === 2. 模式切换逻辑 (核心交互) ===
@@ -125,11 +114,7 @@ function setMode(mode) {
 
     if (mode === 'text') {
         document.getElementById('input-text-val').focus();
-    } else if (mode === 'file') {
-        document.getElementById('input-file-val').click();
-    } else if (mode === 'image') {
-        document.getElementById('input-image-val').click();
-    } else {
+    } else if (mode === 'receive') {
         const codeInput = document.getElementById('input-code-val');
         codeInput.focus();
         codeInput.select();

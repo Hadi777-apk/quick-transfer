@@ -17,11 +17,40 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('input-code-val').value = codeFromUrl;
     }
     
-    // 初始化底部切换链接
-    updateSwitchLinks('text');
+    // 初始化底部切换按钮
+    updateSwitchLinks(currentMode);
 
     const imageDropzone = document.getElementById('image-dropzone');
     const imageInput = document.getElementById('input-image-val');
+    const codeInput = document.getElementById('input-code-val');
+    const textInput = document.getElementById('input-text-val');
+
+    codeInput.addEventListener('input', () => {
+        codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 4);
+    });
+    codeInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && !event.isComposing) {
+            event.preventDefault();
+            handleSubmit();
+        }
+    });
+    textInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            handleSubmit();
+        }
+    });
+    document.querySelectorAll('.file-dropzone').forEach(dropzone => {
+        dropzone.tabIndex = 0;
+        dropzone.setAttribute('role', 'button');
+        dropzone.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                dropzone.click();
+            }
+        });
+    });
+
     imageDropzone.addEventListener('dragover', event => {
         event.preventDefault();
         imageDropzone.classList.add('dragging');
@@ -93,6 +122,18 @@ function setMode(mode) {
 
     // D. 更新底部快捷按钮
     updateSwitchLinks(mode);
+
+    if (mode === 'text') {
+        document.getElementById('input-text-val').focus();
+    } else if (mode === 'file') {
+        document.getElementById('input-file-val').click();
+    } else if (mode === 'image') {
+        document.getElementById('input-image-val').click();
+    } else {
+        const codeInput = document.getElementById('input-code-val');
+        codeInput.focus();
+        codeInput.select();
+    }
 }
 
 // 动态渲染快捷切换按钮
@@ -223,7 +264,7 @@ async function handleSubmit() {
         // --- D. 接收内容 ---
         else {
             const code = document.getElementById('input-code-val').value;
-            if (!code || code.length !== 4) throw new Error("请输入 4 位数字接收码");
+            if (!/^\d{4}$/.test(code)) throw new Error("请输入 4 位数字接收码");
             res = await fetch(`/api/get/${code}`);
         }
 
@@ -336,6 +377,8 @@ async function handleSubmit() {
     } catch (err) {
         resultPanel.style.display = 'block';
         resultPanel.innerHTML = `<div style="color:#ef4444; font-weight:bold;">❌ ${err.message}</div>`;
+        if (currentMode === 'text') document.getElementById('input-text-val').focus();
+        if (currentMode === 'receive') document.getElementById('input-code-val').focus();
     } finally {
         btn.disabled = false;
         if (currentMode === 'receive') btn.textContent = '立即提取';

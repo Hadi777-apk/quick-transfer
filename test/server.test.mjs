@@ -24,6 +24,10 @@ test('public site and sharing flows work end to end', async (t) => {
   assert.match(home.headers.get('cache-control'), /no-transform/);
   assert.match(await home.text(), /P2P快传/);
 
+  const favicon = await fetch(`${base}/favicon.png`);
+  assert.equal(favicon.status, 200);
+  assert.equal(favicon.headers.get('content-type'), 'image/png');
+
   const sharedText = await fetch(`${base}/api/share/text`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ text: '<b>原样文本</b>', burn: false }),

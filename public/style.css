@@ -103,6 +103,13 @@ body {
     color: var(--text-main);
 }
 
+.brand-icon {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    flex: 0 0 auto;
+}
+
 .brand svg {
     width: 32px;
     height: 32px;
@@ -227,6 +234,7 @@ textarea:focus { border-color: var(--primary); }
 
 .code-input {
     width: 100%;
+    box-sizing: border-box;
     font-size: 2rem;
     text-align: center;
     letter-spacing: 0.5em;
@@ -249,6 +257,7 @@ textarea:focus { border-color: var(--primary); }
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
+    touch-action: manipulation;
 }
 .btn-submit:hover { background: var(--primary-hover); }
 .btn-submit:disabled { background: #9ca3af; cursor: not-allowed; }
@@ -968,6 +977,29 @@ textarea:focus { border-color: var(--primary); }
 /* === 移动端专项适配 (手机屏幕) === */
 @media screen and (max-width: 600px) {
 
+    html, body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .site-header,
+    .main-content,
+    .action-card,
+    .modal-box {
+        box-sizing: border-box;
+    }
+
+    .site-header {
+        width: 100%;
+        padding: 0 16px;
+    }
+
+    .brand-icon {
+        width: 36px;
+        height: 36px;
+    }
+
     /* 1. 调整容器边距，利用宝贵的手机空间 */
     .container, .main-content {
         padding: 15px; /* 电脑端可能是 20px 或更多，手机端减小 */
@@ -1012,6 +1044,11 @@ textarea:focus { border-color: var(--primary); }
         font-size: 0.6rem;        /* 标签也变小 */
         padding: 1px 6px;
     }
+}
+
+.file-dropzone:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.3);
+    outline-offset: 2px;
 }
 * {
     -webkit-tap-highlight-color: transparent; /* 去掉点击时的灰色背景块 */

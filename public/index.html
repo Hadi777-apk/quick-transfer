@@ -10,11 +10,13 @@
     <meta name="keywords" content="P2P快传,文件传输,免登录传文件,手机传电脑,跨设备传输,阅后即焚,临时网盘,在线剪贴板,文件快传,无需注册">
     <meta name="author" content="P2P快传">
     <meta name="robots" content="noindex, nofollow">
-    <link rel="icon" href="data:,">
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/favicon.png">
 
     <meta property="og:type" content="website">
     <meta property="og:title" content="P2P快传 - 免费免登录的跨设备文件传输工具">
     <meta property="og:description" content="4位取件码，3秒完成跨设备分享。数据2小时自动销毁，安全高效。">
+    <meta property="og:image" content="/favicon.png">
     <meta property="og:site_name" content="P2P快传">
 
     <link rel="stylesheet" href="style.css">
@@ -52,6 +54,7 @@
 <!-- ====== 顶部品牌 ====== -->
 <header class="site-header">
     <div class="brand" onclick="location.href='/'" style="cursor:pointer">
+        <img class="brand-icon" src="/favicon.png" alt="P2P快传">
         <h1 style="font-size:1.25rem;margin:0;font-weight:700;color:var(--text-main);">P2P快传</h1>
     </div>
 </header>
@@ -85,7 +88,7 @@
         </div>
 
         <div id="area-receive" class="input-group" style="display:none;">
-            <input type="text" id="input-code-val" class="code-input" maxlength="4" placeholder="在此输入取件码" autocomplete="off">
+            <input type="text" id="input-code-val" class="code-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" enterkeyhint="go" placeholder="在此输入取件码" autocomplete="one-time-code">
         </div>
 
         <div id="options-panel" class="options-group">

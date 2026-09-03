@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <title>P2P快传 - 免费免登录的跨设备文件传输工具 | 阅后即焚</title>
+    <meta name="description" content="P2P快传是一款免费免登录的跨设备文件传输工具。通过4位取件码在手机、电脑间极速同步文本与文件，支持阅后即焚，数据2小时自动销毁。">
+    <meta name="keywords" content="P2P快传,文件传输,免登录传文件,手机传电脑,跨设备传输,阅后即焚,临时网盘,在线剪贴板,文件快传,无需注册">
+    <meta name="author" content="P2P快传">
+    <meta name="robots" content="noindex, nofollow">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="P2P快传 - 免费免登录的跨设备文件传输工具">
+    <meta property="og:description" content="4位取件码，3秒完成跨设备分享。数据2小时自动销毁，安全高效。">
+    <meta property="og:site_name" content="P2P快传">
+
+    <link rel="stylesheet" href="style.css">
+    <link href="/vendor/inter.css" rel="stylesheet">
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "P2P快传",
+        "description": "免费免登录的跨设备文件与文本传输工具。4位取件码，数据2小时自动销毁。",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "All",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" },
+        "browserRequirements": "Requires JavaScript"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            { "@type": "Question", "name": "P2P快传是什么？", "acceptedAnswer": { "@type": "Answer", "text": "P2P快传是一款免费免登录的跨设备文件与文本临时传输工具。只需生成4位取件码，即可在手机、电脑间极速传递内容。数据2小时后自动销毁。" } },
+            { "@type": "Question", "name": "需要注册账号吗？", "acceptedAnswer": { "@type": "Answer", "text": "完全不需要。P2P快传不要求注册、不收集个人信息，打开浏览器即可直接使用。" } },
+            { "@type": "Question", "name": "数据保留多久？", "acceptedAnswer": { "@type": "Answer", "text": "所有数据仅保留2小时，之后自动从服务器彻底删除。开启阅后即焚模式后，内容首次查看后立即销毁。" } },
+            { "@type": "Question", "name": "文件大小有什么限制？", "acceptedAnswer": { "@type": "Answer", "text": "单个文件最大100MB，文本最长20000字。" } }
+        ]
+    }
+    </script>
+
+    <script src="/vendor/qrcode.min.js"></script>
+</head>
+<body>
+
+<!-- ====== 顶部品牌 ====== -->
+<header class="site-header">
+    <div class="brand" onclick="location.href='/'" style="cursor:pointer">
+        <h1 style="font-size:1.25rem;margin:0;font-weight:700;color:var(--text-main);">P2P快传</h1>
+    </div>
+</header>
+
+<!-- ====== 核心工具区 (保持原有 DOM 结构不变) ====== -->
+<main class="main-content">
+    <div class="action-card">
+        <h2 id="action-title" class="card-title">粘贴文本生成取件码</h2>
+        <p class="limit-hint">文本限制 20000 字，文件或图片总计 100MB 以内</p>
+
+        <div id="area-text" class="input-group">
+            <textarea id="input-text-val" placeholder="在此粘贴你需要分享的文本..."></textarea>
+            <button id="btn-paste" onclick="handlePaste()" title="点击读取剪贴板">粘贴</button>
+        </div>
+
+        <div id="area-file" class="input-group" style="display:none;">
+            <div class="file-dropzone" onclick="document.getElementById('input-file-val').click()">
+                <span class="file-icon">&#x1F4C2;</span>
+                <span class="file-text" id="file-name-display">点击选择文件 或 拖拽至此</span>
+                <input type="file" id="input-file-val" hidden onchange="updateFileName(this)">
+            </div>
+        </div>
+
+        <div id="area-image" class="input-group" style="display:none;">
+            <div id="image-dropzone" class="file-dropzone" onclick="document.getElementById('input-image-val').click()">
+                <span class="file-icon">&#x1F5BC;&#xFE0F;</span>
+                <span class="file-text" id="image-name-display">点击选择多张图片 或 拖拽至此</span>
+                <input type="file" id="input-image-val" accept="image/*" multiple hidden onchange="updateImageSelection(this)">
+            </div>
+            <div id="image-preview-grid" class="image-preview-grid"></div>
+        </div>
+
+        <div id="area-receive" class="input-group" style="display:none;">
+            <input type="text" id="input-code-val" class="code-input" maxlength="4" placeholder="在此输入取件码" autocomplete="off">
+        </div>
+
+        <div id="options-panel" class="options-group">
+            <label class="checkbox-label" title="开启后，内容被查看/下载一次即刻销毁">
+                <input type="checkbox" id="burn-mode">
+                <span class="custom-checkbox"></span>
+                <span class="label-text">阅后即焚 (查看一次后自动销毁)</span>
+            </label>
+        </div>
+
+        <button class="btn-submit" id="main-btn" onclick="handleSubmit()">生成取件码</button>
+
+        <div id="switch-area" class="quick-switch-box"></div>
+        <div id="result-panel" class="result-panel"></div>
+    </div>
+</main>
+
+<!-- 法律弹窗 -->
+<div id="legal-modal" class="modal-overlay">
+    <div class="modal-box">
+        <div style="font-size:3rem;margin-bottom:10px;">&#x2696;&#xFE0F;</div>
+        <h3 style="margin:0 0 10px 0;">法律合规声明</h3>
+        <p style="text-align:left;color:#666;font-size:0.9rem;line-height:1.6;">
+            根据相关法律法规，本平台严禁传输任何违法、涉密或侵权内容。系统将在 2 小时后自动清除所有数据。
+        </p>
+        <button class="modal-btn" onclick="closeLegalModal()">我已知晓并同意</button>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

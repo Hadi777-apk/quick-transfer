@@ -1,0 +1,6 @@
+node_modules/
+data/shares.json
+data/shares.json.tmp
+data/feedback.ndjson
+data/uploads/*
+!data/uploads/.gitkeep

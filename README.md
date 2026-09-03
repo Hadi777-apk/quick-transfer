@@ -51,3 +51,7 @@ This is an unofficial study project. Its initial public-page layout was rebuilt 
 The original site states that its website design, code, logo, and brand belong to its operator. This repository removes the original logo, filing number, blog content, browser extension, mini-program assets, analytics, and original production data. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for bundled dependencies and attribution.
 
 No project-wide open-source license is asserted for material derived from the reference interface. Review the applicable rights before reuse or redistribution.
+
+## 🔗 Friend Links
+
+- 🐧 [LINUX DO — 新的理想型社区](https://linux.do/)

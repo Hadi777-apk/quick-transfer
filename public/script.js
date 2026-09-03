@@ -57,6 +57,12 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+window.addEventListener('pageshow', () => {
+    if (document.getElementById('legal-modal').style.display === 'flex') return;
+    if (currentMode === 'text') document.getElementById('input-text-val').focus();
+    if (currentMode === 'receive') document.getElementById('input-code-val').focus();
+});
+
 function closeLegalModal() {
     localStorage.setItem('legalAgreed', 'true');
     document.getElementById('legal-modal').style.display = 'none';

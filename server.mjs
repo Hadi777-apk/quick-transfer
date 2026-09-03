@@ -240,7 +240,7 @@ export async function createApp({
   app.use(express.static(publicDir, {
     extensions: ['html'],
     setHeaders: (response, filePath) => {
-      if (filePath.endsWith('.html')) response.set('Cache-Control', 'public, max-age=0, no-transform');
+      if (filePath.endsWith('.html')) response.set('Cache-Control', 'no-store, no-transform');
     },
   }));
 

@@ -1,4 +1,5 @@
 node_modules/
+docs/
 data/shares.json
 data/shares.json.tmp
 data/feedback.ndjson

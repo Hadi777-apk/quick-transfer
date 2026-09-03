@@ -473,11 +473,15 @@ function showToast(message) {
 }
 // === [新增] 处理粘贴按钮点击 ===
 async function handlePaste() {
+    const textarea = document.getElementById('input-text-val');
+
     try {
-        // 读取剪贴板内容 (需要浏览器授权)
+        if (!window.isSecureContext || !navigator.clipboard?.readText) {
+            throw new Error('Clipboard API unavailable');
+        }
+
         const text = await navigator.clipboard.readText();
-        const textarea = document.getElementById('input-text-val');
-        
+
         if (!text) {
             showToast('⚠️ 剪贴板是空的');
             return;
@@ -485,11 +489,9 @@ async function handlePaste() {
 
         textarea.value = text;
         showToast('✅ 已粘贴');
-        
-    } catch (err) {
-        console.error('粘贴失败:', err);
-        // 兼容性提示
-        alert('无法读取剪贴板。\n\n可能原因：\n1. 浏览器权限被拒绝。\n2. 当前不是 HTTPS 环境。\n\n请尝试使用键盘快捷键 Ctrl+V 粘贴。');
+    } catch {
+        textarea.focus();
+        showToast('请长按文本框，选择“粘贴”');
     }
 }
 

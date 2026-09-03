@@ -1,0 +1,10 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+    ports:
+      - "127.0.0.1:3300:3000"
+    volumes:
+      - ./data:/app/data

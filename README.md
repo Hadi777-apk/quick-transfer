@@ -30,6 +30,14 @@ Optional environment variables:
 
 Runtime data is written under `data/` and is excluded from Git.
 
+## Docker
+
+```bash
+docker compose up -d --build
+```
+
+The container listens on `127.0.0.1:3300` for a local reverse proxy. Uploaded files and share metadata persist in `./data`.
+
 ## Project status and attribution
 
 This is an unofficial study project. Its initial public-page layout was rebuilt from the publicly accessible [123share.cn](https://123share.cn/) interface. It is not affiliated with or endorsed by that service. The server implementation in this repository is an independent clean-room implementation based on the browser-visible request and response contract; no original server source, administrator interface, production data, or user uploads are included.

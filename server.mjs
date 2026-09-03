@@ -83,6 +83,10 @@ export async function createApp({
     response.set('X-Content-Type-Options', 'nosniff');
     next();
   });
+  app.use('/api', (_request, response, next) => {
+    response.set('Cache-Control', 'no-store');
+    next();
+  });
   app.use(express.json({ limit: '25kb' }));
 
   app.post('/api/share/text', async (request, response, next) => {
@@ -233,7 +237,12 @@ export async function createApp({
     } catch (error) { next(error); }
   });
 
-  app.use(express.static(publicDir, { extensions: ['html'] }));
+  app.use(express.static(publicDir, {
+    extensions: ['html'],
+    setHeaders: (response, filePath) => {
+      if (filePath.endsWith('.html')) response.set('Cache-Control', 'public, max-age=0, no-transform');
+    },
+  }));
 
   app.use((error, _request, response, _next) => {
     if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {

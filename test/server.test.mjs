@@ -21,6 +21,7 @@ test('public site and sharing flows work end to end', async (t) => {
   const home = await fetch(base);
   assert.equal(home.status, 200);
   assert.equal(home.headers.get('x-robots-tag'), 'noindex, nofollow');
+  assert.match(home.headers.get('cache-control'), /no-transform/);
   assert.match(await home.text(), /P2P快传/);
 
   const sharedText = await fetch(`${base}/api/share/text`, {
@@ -28,6 +29,7 @@ test('public site and sharing flows work end to end', async (t) => {
     body: JSON.stringify({ text: '<b>原样文本</b>', burn: false }),
   });
   assert.equal(sharedText.status, 200);
+  assert.equal(sharedText.headers.get('cache-control'), 'no-store');
   const { code: textCode } = await sharedText.json();
   assert.match(textCode, /^\d{4}$/);
   const textResult = await (await fetch(`${base}/api/get/${textCode}`)).json();

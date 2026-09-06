@@ -5,7 +5,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 COPY public ./public
-COPY server.mjs ./
+COPY server.mjs chunk-uploads.mjs ./
 RUN mkdir -p /app/data/uploads && chown -R node:node /app
 
 USER node

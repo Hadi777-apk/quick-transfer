@@ -19,7 +19,7 @@
     <meta property="og:image" content="/favicon.png">
     <meta property="og:site_name" content="P2P快传">
 
-    <link rel="stylesheet" href="style.css?v=20260904-3">
+    <link rel="stylesheet" href="style.css?v=20260906-misty-mountains">
     <link href="/vendor/inter.css" rel="stylesheet">
 
     <script type="application/ld+json">
@@ -42,7 +42,7 @@
             { "@type": "Question", "name": "P2P快传是什么？", "acceptedAnswer": { "@type": "Answer", "text": "P2P快传是一款免费免登录的跨设备文件与文本临时传输工具。只需生成4位取件码，即可在手机、电脑间极速传递内容。数据2小时后自动销毁。" } },
             { "@type": "Question", "name": "需要注册账号吗？", "acceptedAnswer": { "@type": "Answer", "text": "完全不需要。P2P快传不要求注册、不收集个人信息，打开浏览器即可直接使用。" } },
             { "@type": "Question", "name": "数据保留多久？", "acceptedAnswer": { "@type": "Answer", "text": "所有数据仅保留2小时，之后自动从服务器彻底删除。开启阅后即焚模式后，内容首次查看后立即销毁。" } },
-            { "@type": "Question", "name": "文件大小有什么限制？", "acceptedAnswer": { "@type": "Answer", "text": "单个文件最大100MB，文本最长20000字。" } }
+            { "@type": "Question", "name": "文件大小有什么限制？", "acceptedAnswer": { "@type": "Answer", "text": "单个文件最大200MB，文本最长20000字。" } }
         ]
     }
     </script>
@@ -62,29 +62,21 @@
 <!-- ====== 核心工具区 (保持原有 DOM 结构不变) ====== -->
 <main class="main-content">
     <div class="action-card">
-        <h2 id="action-title" class="card-title">粘贴文本生成取件码</h2>
-        <p class="limit-hint">文本限制 20000 字，文件或图片总计 100MB 以内</p>
+        <h2 id="action-title" class="card-title">分享文字、图片和文件</h2>
+        <p class="limit-hint">文字最多 20000 字 · 附件最多 20 个、总计 200MB</p>
 
-        <div id="area-text" class="input-group">
-            <textarea id="input-text-val" autofocus placeholder="在此粘贴你需要分享的文本..."></textarea>
-            <button id="btn-paste" onclick="handlePaste()" title="点击读取剪贴板">粘贴</button>
-        </div>
-
-        <div id="area-file" class="input-group" style="display:none;">
-            <div class="file-dropzone" onclick="document.getElementById('input-file-val').click()">
-                <span class="file-icon">&#x1F4C2;</span>
-                <span class="file-text" id="file-name-display">点击选择文件 或 拖拽至此</span>
-                <input type="file" id="input-file-val" hidden onchange="updateFileName(this)">
+        <div id="area-send" class="input-group">
+            <div id="share-composer" class="share-composer">
+                <textarea id="input-text-val" autofocus aria-label="分享内容" placeholder="输入文字，或直接 Ctrl+V 粘贴文字、图片和文件…"></textarea>
+                <div id="attachment-grid" class="attachment-grid"></div>
+                <div class="composer-toolbar">
+                    <button id="add-attachments" type="button" onclick="document.getElementById('input-attachments').click()">＋ 添加图片 / 文件</button>
+                    <button id="btn-paste" type="button" onclick="handlePaste()">粘贴</button>
+                    <input type="file" id="input-attachments" multiple hidden>
+                </div>
+                <div class="composer-hint">也可以把图片或文件拖到这里</div>
             </div>
-        </div>
-
-        <div id="area-image" class="input-group" style="display:none;">
-            <div id="image-dropzone" class="file-dropzone" onclick="document.getElementById('input-image-val').click()">
-                <span class="file-icon">&#x1F5BC;&#xFE0F;</span>
-                <span class="file-text" id="image-name-display">点击选择多张图片 或 拖拽至此</span>
-                <input type="file" id="input-image-val" accept="image/*" multiple hidden onchange="updateImageSelection(this)">
-            </div>
-            <div id="image-preview-grid" class="image-preview-grid"></div>
+            <div id="attachment-summary" class="attachment-summary" aria-live="polite"></div>
         </div>
 
         <div id="area-receive" class="input-group" style="display:none;">
@@ -92,10 +84,10 @@
         </div>
 
         <div id="options-panel" class="options-group">
-            <label class="checkbox-label" title="开启后，内容被查看/下载一次即刻销毁">
+            <label class="checkbox-label" title="纯文字查看后销毁；含附件时，全部附件下载完成后销毁">
                 <input type="checkbox" id="burn-mode">
                 <span class="custom-checkbox"></span>
-                <span class="label-text">阅后即焚 (查看一次后自动销毁)</span>
+                <span class="label-text">阅后即焚</span>
             </label>
         </div>
 
@@ -118,6 +110,6 @@
     </div>
 </div>
 
-<script src="script.js?v=20260904-3"></script>
+<script src="script.js?v=20260906-200mb"></script>
 </body>
 </html>

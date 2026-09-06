@@ -15,3 +15,10 @@ The font files under `public/assets/fonts/` are from the Inter typeface and are 
 ## npm dependencies
 
 Express and Multer are installed from npm according to `package-lock.json`. Their respective license terms apply.
+
+## Background photographs
+
+- `public/assets/backgrounds/misty-mountains.jpg`: Daniil Silantev, [hazy mountain layers at sunrise](https://unsplash.com/photos/hazy-mountain-layers-at-sunrise-with-orange-sky-l9XWp3S9yuk).
+- `public/assets/backgrounds/alpine-lake.jpg`: Alexander Klimm, [a mountain range with a lake in the foreground](https://unsplash.com/photos/a-mountain-range-with-a-lake-in-the-foreground-5CbjzGrni4c).
+
+Both photographs are distributed under the [Unsplash License](https://unsplash.com/license). Original image URLs and retrieval dates are recorded alongside the assets.

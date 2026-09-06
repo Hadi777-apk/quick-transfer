@@ -5,3 +5,5 @@ data/shares.json.tmp
 data/feedback.ndjson
 data/uploads/*
 !data/uploads/.gitkeep
+data/upload-sessions/
+deploy/backups/

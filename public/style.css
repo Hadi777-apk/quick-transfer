@@ -22,6 +22,18 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    isolation: isolate;
+}
+
+/* 固定山景背景，不参与页面布局。 */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(rgba(15, 32, 43, 0.04), rgba(15, 32, 43, 0.12)),
+        url('/assets/backgrounds/misty-mountains.jpg') center / cover no-repeat;
 }
 
 /* === Header 头部区域 === */
@@ -511,6 +523,96 @@ textarea:focus { border-color: var(--primary); }
     font-size: 0.8rem;
     text-decoration: none;
 }
+.image-preview-card {
+    position: relative;
+    min-width: 0;
+}
+
+.image-preview-card img {
+    display: block;
+}
+
+.main-content { box-sizing: border-box; }
+.action-card { box-sizing: border-box; max-width: 604px; }
+.share-composer {
+    border: 2px dashed #d1d5db;
+    border-radius: 12px;
+    background: #f9fafb;
+    padding: 14px;
+}
+.share-composer:focus-within, .share-composer.dragging {
+    border-color: var(--primary);
+    background: #eff6ff;
+}
+.share-composer #input-text-val {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 150px;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    padding: 4px;
+    resize: vertical;
+}
+.composer-toolbar { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+.composer-toolbar button {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 12px;
+    background: #fff;
+    color: var(--primary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.85rem;
+}
+.composer-toolbar #btn-paste { position: static; transform: none; margin-left: auto; }
+/* 保留粘贴按钮和拖拽提示，暂时隐藏。Ctrl+V 与拖拽功能仍可用。 */
+.composer-toolbar #btn-paste, .composer-hint { display: none; }
+.composer-toolbar button:disabled { opacity: 0.5; cursor: wait; }
+.composer-hint, .attachment-summary { font-size: 0.8rem; color: var(--text-sub); margin-top: 10px; }
+.attachment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+.attachment-grid:empty { display: none; }
+.attachment-card { min-width: 0; border-radius: 8px; overflow: hidden; background: #fff; border: 1px solid #e2e8f0; }
+.attachment-card img { width: 100%; height: 100px; object-fit: cover; }
+.attachment-icon { height: 100px; display: grid; place-items: center; background: #f1f5f9; font-size: 32px; }
+.attachment-name { padding: 7px 8px 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 0.8rem; }
+.attachment-size { padding: 2px 8px 8px; color: var(--text-sub); font-size: 0.75rem; }
+.attachment-card a { display: block; padding: 0 8px 10px; color: var(--primary); font-size: 0.85rem; }
+.received-heading { color: #059669; font-weight: bold; margin-bottom: 10px; }
+.received-text { padding: 12px; margin: 10px 0 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 300px; overflow-y: auto; }
+.burn-hint { color: #ef4444; font-size: 0.8rem; }
+@media (max-width: 600px) {
+    .action-card { padding: 20px; }
+    .main-content { padding: 20px 12px; }
+    .share-composer { padding: 10px; }
+}
+
+.image-remove-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: rgba(17, 24, 39, 0.8);
+    color: #fff;
+    font: 22px/1 Arial, sans-serif;
+    cursor: pointer;
+}
+
+.image-remove-btn:hover {
+    background: #dc2626;
+}
+
+.image-remove-btn:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+}
+
 /* === 新增：选项区域样式 === */
 .options-group {
     margin-bottom: 20px;

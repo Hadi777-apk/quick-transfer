@@ -1,16 +1,24 @@
 # P2P Quick Transfer
 
-A lightweight browser app for sharing text, files, and multiple images through four-digit pickup codes. No account is required. Shares expire automatically after two hours and can optionally be destroyed after their first retrieval.
+A lightweight browser app for sharing text, images, and files together through one four-digit pickup code. No account is required. Shares expire automatically after two hours.
 
 ## Features
 
-- Text sharing up to 20,000 characters
-- Single-file sharing up to 100 MiB
-- Multi-image sharing: up to 20 images and 100 MiB total
-- Four-digit pickup codes
-- Burn-after-reading support
-- Local filesystem persistence and automatic cleanup
-- Responsive browser interface
+- One composer for text, images, and arbitrary file attachments
+- Type, paste with Ctrl+V, drag files in, or choose files manually
+- Up to 20,000 text characters and 20 attachments totaling 200 MiB per share
+- Image thumbnails, file names and sizes, and per-attachment removal
+- Large uploads use 16 MiB chunks, show progress, and retry transient failures
+- Four-digit pickup codes with support for previously created text, file, and image shares
+- Optional burn-after-reading: text-only shares are removed after retrieval; shares with attachments are removed after all attachments have been downloaded (image previews do not trigger deletion)
+- Local filesystem persistence, expired-share cleanup, and cleanup of unfinished upload sessions
+- Responsive layout with a locally hosted mountain photograph background
+
+## Transfer architecture
+
+Despite the product name, this implementation uses server-backed HTTPS upload and download, not WebRTC peer-to-peer transfer. Browsers upload content to the Node.js service through a reverse proxy, and recipients download the stored content using a pickup code. The sender can close the page once the upload finishes. There is no application-level end-to-end encryption.
+
+Shares of up to 32 MiB use a multipart upload. Larger shares use upload sessions with 16 MiB chunks, assembled on the server after all expected bytes have arrived. This keeps each upload request below common proxy request-size limits. Incomplete upload sessions expire after two hours.
 
 ## Run locally
 
@@ -28,7 +36,7 @@ Optional environment variables:
 - `DATA_DIR`: runtime storage directory; defaults to `./data`.
 - `SHARE_TTL_MS`: share lifetime in milliseconds; defaults to two hours.
 
-Runtime data is written under `data/` and is excluded from Git.
+Runtime data is written under `data/` and is excluded from Git, including uploaded files and unfinished upload sessions. Local deployment backups under `deploy/backups/` are also excluded.
 
 ## Docker
 
@@ -36,7 +44,7 @@ Runtime data is written under `data/` and is excluded from Git.
 docker compose up -d --build
 ```
 
-The container listens on `127.0.0.1:3300` for a local reverse proxy. Uploaded files and share metadata persist in the Docker volume `app-data`.
+The container listens on `127.0.0.1:3300` for a local reverse proxy. The included Nginx template allows 210 MiB request bodies, leaving room for multipart overhead. Uploaded files and share metadata persist in the Docker volume `app-data`.
 
 After deployment, run a self-cleaning production smoke test with:
 

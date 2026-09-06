@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import multer from 'multer';
+import { installChunkUploads } from './chunk-uploads.mjs';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(rootDir, 'public');
@@ -31,10 +32,16 @@ export async function createApp({
     if (error.code !== 'ENOENT') throw error;
   }
 
+  let saveQueue = Promise.resolve();
   async function saveShares() {
-    const tempPath = `${sharesPath}.tmp`;
-    await writeFile(tempPath, JSON.stringify(shares, null, 2));
-    await rename(tempPath, sharesPath);
+    const snapshot = JSON.stringify(shares, null, 2);
+    const saving = saveQueue.then(async () => {
+      const tempPath = `${sharesPath}.tmp`;
+      await writeFile(tempPath, snapshot);
+      await rename(tempPath, sharesPath);
+    });
+    saveQueue = saving.catch(() => {});
+    await saving;
   }
 
   async function removeShare(code) {
@@ -46,6 +53,9 @@ export async function createApp({
     }
     if (share.images) {
       await Promise.all(share.images.map((image) => rm(path.join(uploadDir, image.storedName), { force: true })));
+    }
+    if (share.attachments) {
+      await Promise.all(share.attachments.map((file) => rm(path.join(uploadDir, file.storedName), { force: true })));
     }
     await saveShares();
   }
@@ -73,8 +83,9 @@ export async function createApp({
     destination: uploadDir,
     filename: (_request, _file, callback) => callback(null, randomUUID()),
   });
-  const uploadFile = multer({ storage, limits: { fileSize: 100 * 1024 * 1024, files: 1 } });
-  const uploadImages = multer({ storage, limits: { fileSize: 100 * 1024 * 1024, files: 20 } });
+  const uploadFile = multer({ storage, limits: { fileSize: 200 * 1024 * 1024, files: 1 } });
+  const uploadImages = multer({ storage, limits: { fileSize: 200 * 1024 * 1024, files: 20 } });
+  const uploadBundle = multer({ storage, limits: { fileSize: 200 * 1024 * 1024, files: 20, fields: 2, fieldSize: 100000 } });
   const app = express();
 
   app.disable('x-powered-by');
@@ -86,6 +97,16 @@ export async function createApp({
   app.use('/api', (_request, response, next) => {
     response.set('Cache-Control', 'no-store');
     next();
+  });
+  await installChunkUploads(app, {
+    dataDir, maxBytes: 200 * 1024 * 1024,
+    createShare: async (text, burn, attachments) => {
+      const code = makeCode();
+      shares[code] = { type: 'bundle', text, burn, attachments, expiresAt: Date.now() + ttlMs };
+      try { await saveShares(); }
+      catch (error) { delete shares[code]; throw error; }
+      return code;
+    },
   });
   app.use(express.json({ limit: '25kb' }));
 
@@ -130,10 +151,10 @@ export async function createApp({
       if (!files.length) return response.status(400).json({ error: '请选择图片' });
       const invalid = files.some((file) => !file.mimetype.startsWith('image/'));
       const totalSize = files.reduce((sum, file) => sum + file.size, 0);
-      if (invalid || totalSize > 100 * 1024 * 1024) {
+      if (invalid || totalSize > 200 * 1024 * 1024) {
         await Promise.all(files.map((file) => rm(file.path, { force: true })));
         return response.status(invalid ? 415 : 413).json({
-          error: invalid ? '只能上传图片文件' : '图片总大小超过 100MB 限制',
+          error: invalid ? '只能上传图片文件' : '图片总大小超过 200MB 限制',
         });
       }
       const code = makeCode();
@@ -155,6 +176,37 @@ export async function createApp({
     }
   });
 
+  app.post('/api/share/bundle', uploadBundle.array('attachments', 20), async (request, response, next) => {
+    const files = request.files || [];
+    let code;
+    try {
+      const text = typeof request.body?.text === 'string' ? request.body.text.replace(/\r\n/g, '\n') : '';
+      const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+      const error = !text && !files.length ? '请输入文字或添加图片、文件'
+        : text.length > 20000 ? '文本超过 20000 字限制'
+          : totalSize > 200 * 1024 * 1024 ? '附件总大小超过 200MB 限制' : null;
+      if (error) {
+        await Promise.all(files.map((file) => rm(file.path, { force: true })));
+        return response.status(!text && !files.length ? 400 : 413).json({ error });
+      }
+      code = makeCode();
+      shares[code] = {
+        type: 'bundle', text, burn: request.body.burn === 'true',
+        expiresAt: Date.now() + ttlMs,
+        attachments: files.map((file) => ({
+          filename: Buffer.from(file.originalname, 'latin1').toString('utf8'),
+          storedName: file.filename, mimeType: file.mimetype || 'application/octet-stream', size: file.size,
+        })),
+      };
+      await saveShares();
+      response.json({ code });
+    } catch (error) {
+      if (code) delete shares[code];
+      await Promise.all(files.map((file) => rm(file.path, { force: true })));
+      next(error);
+    }
+  });
+
   app.get('/api/get/:code', async (request, response, next) => {
     try {
       const { code } = request.params;
@@ -162,6 +214,19 @@ export async function createApp({
       if (!share || share.expiresAt <= Date.now()) {
         if (share) await removeShare(code);
         return response.status(404).json({ error: '取件码不存在或已过期' });
+      }
+      if (share.type === 'bundle') {
+        const data = {
+          type: 'bundle', content: share.text, burn: share.burn,
+          attachments: share.attachments.map((file, index) => ({
+            filename: file.filename, mimeType: file.mimeType, size: file.size,
+            downloadUrl: `/api/bundle/${code}/${index}`,
+            previewUrl: /^(image\/(png|jpeg|gif|webp|avif|bmp|x-icon))$/.test(file.mimeType)
+              ? `/api/bundle/${code}/${index}?preview=1` : null,
+          })),
+        };
+        if (share.burn && !share.attachments.length && request.method === 'GET') await removeShare(code);
+        return response.json(data);
       }
       if (share.type === 'text') {
         response.json({ type: 'text', content: share.text, burn: share.burn });
@@ -184,12 +249,41 @@ export async function createApp({
     } catch (error) { next(error); }
   });
 
+  app.get('/api/bundle/:code/:index', async (request, response, next) => {
+    try {
+      const { code } = request.params;
+      const index = Number(request.params.index);
+      const share = shares[code];
+      const file = share?.type === 'bundle' && Number.isInteger(index) ? share.attachments[index] : null;
+      if (!file || share.expiresAt <= Date.now()) {
+        if (share?.expiresAt <= Date.now()) await removeShare(code);
+        return response.status(404).json({ error: '附件不存在或已过期' });
+      }
+      const preview = request.query.preview === '1';
+      const inline = preview && /^(image\/(png|jpeg|gif|webp|avif|bmp|x-icon))$/.test(file.mimeType);
+      if (preview && !inline) return response.status(400).json({ error: '此附件不支持图片预览，请使用下载链接' });
+      const asciiName = file.filename.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_');
+      response.set('Content-Type', file.mimeType);
+      response.set('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(file.filename)}`);
+      if (share.burn && !preview && request.method === 'GET') {
+        response.on('finish', () => {
+          share.downloadedAttachments ||= [];
+          if (!share.downloadedAttachments.includes(index)) share.downloadedAttachments.push(index);
+          const saving = share.downloadedAttachments.length === share.attachments.length
+            ? removeShare(code) : saveShares();
+          saving.catch(console.error);
+        });
+      }
+      createReadStream(path.join(uploadDir, file.storedName)).on('error', next).pipe(response);
+    } catch (error) { next(error); }
+  });
+
   app.get('/api/download/:code', async (request, response, next) => {
     const { code } = request.params;
     try {
       const share = shares[code];
       if (!share || share.type !== 'file' || share.expiresAt <= Date.now()) {
-        if (share) await removeShare(code);
+        if (share?.expiresAt <= Date.now()) await removeShare(code);
         return response.status(404).json({ error: '文件不存在或已过期' });
       }
       const asciiName = share.filename.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_');
@@ -246,10 +340,13 @@ export async function createApp({
 
   app.use((error, _request, response, _next) => {
     if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
-      return response.status(413).json({ error: '文件超过 100MB 限制' });
+      return response.status(413).json({ error: '文件超过 200MB 限制' });
     }
     if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_COUNT') {
-      return response.status(413).json({ error: '一次最多上传 20 张图片' });
+      return response.status(413).json({ error: '一次最多上传 20 个附件' });
+    }
+    if (error instanceof multer.MulterError) {
+      return response.status(400).json({ error: '上传内容超出限制或格式不正确' });
     }
     if (error?.type === 'entity.too.large') {
       return response.status(413).json({ error: '请求内容过大' });

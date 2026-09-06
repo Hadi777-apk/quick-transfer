@@ -1,31 +1,15 @@
-// === 状态管理 ===
-let currentMode = 'text'; // 可选值: text | file | image | receive
+// === 统一分享状态 ===
+let currentMode = 'send';
+let selectedAttachments = [];
+let attachmentPreviewUrls = [];
 
-// === 1. 初始化逻辑 (页面加载时执行) ===
 window.addEventListener('DOMContentLoaded', () => {
-    // A. 法律弹窗检查
     const legalAgreed = localStorage.getItem('legalAgreed');
-    if (!legalAgreed) {
-        document.getElementById('legal-modal').style.display = 'flex';
-    }
-
-    // B. [传播优化] 检查 URL 是否带接收码 (例如: site.com/?code=1234)
-    const urlParams = new URLSearchParams(window.location.search);
-    const codeFromUrl = urlParams.get('code');
-    
-    if (codeFromUrl && codeFromUrl.length === 4) {
-        setMode('receive');
-        document.getElementById('input-code-val').value = codeFromUrl;
-    }
-    
-    // 初始化底部切换按钮
-    updateSwitchLinks(currentMode);
-
-    const imageDropzone = document.getElementById('image-dropzone');
-    const imageInput = document.getElementById('input-image-val');
+    if (!legalAgreed) document.getElementById('legal-modal').style.display = 'flex';
+    const code = new URLSearchParams(location.search).get('code');
+    setMode(code && /^\d{4}$/.test(code) ? 'receive' : 'send');
     const codeInput = document.getElementById('input-code-val');
-    const textInput = document.getElementById('input-text-val');
-
+    if (currentMode === 'receive') codeInput.value = code;
     codeInput.addEventListener('input', () => {
         codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 4);
     });
@@ -36,130 +20,163 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    if (!codeFromUrl && legalAgreed) textInput.focus();
-
-    imageDropzone.addEventListener('dragover', event => {
-        event.preventDefault();
-        imageDropzone.classList.add('dragging');
+    const textInput = document.getElementById('input-text-val');
+    const fileInput = document.getElementById('input-attachments');
+    fileInput.addEventListener('change', () => {
+        addAttachments(Array.from(fileInput.files || []));
+        fileInput.value = '';
     });
-    imageDropzone.addEventListener('dragleave', () => imageDropzone.classList.remove('dragging'));
-    imageDropzone.addEventListener('drop', event => {
+    document.addEventListener('paste', event => {
+        if (currentMode !== 'send' || event.defaultPrevented || isShareBusy()) return;
+        if (document.getElementById('legal-modal').style.display === 'flex') return;
+        const target = event.target;
+        if (target instanceof Element && target !== textInput &&
+            (target.closest('textarea, input:not([type="file"]):not([type="checkbox"])') || target.isContentEditable)) return;
+        const clipboard = event.clipboardData;
+        if (!clipboard) return;
+        let files = Array.from(clipboard.files || []);
+        if (!files.length) {
+            files = Array.from(clipboard.items || []).filter(item => item.kind === 'file')
+                .map(item => item.getAsFile()).filter(Boolean);
+        }
+        if (files.length) {
+            event.preventDefault();
+            addAttachments(files);
+        } else if (target !== textInput) {
+            const text = clipboard.getData('text/plain');
+            if (text) {
+                event.preventDefault();
+                insertShareText(text);
+            }
+        }
+    });
+    const composer = document.getElementById('share-composer');
+    document.addEventListener('dragover', event => {
+        if (currentMode !== 'send' || !Array.from(event.dataTransfer.types).includes('Files')) return;
         event.preventDefault();
-        event.stopPropagation();
-        imageDropzone.classList.remove('dragging');
-        const transfer = new DataTransfer();
-        Array.from(event.dataTransfer.files)
-            .filter(file => file.type.startsWith('image/'))
-            .slice(0, 20)
-            .forEach(file => transfer.items.add(file));
-        imageInput.files = transfer.files;
-        updateImageSelection(imageInput);
+        if (!isShareBusy()) composer.classList.add('dragging');
+    });
+    document.addEventListener('dragleave', event => {
+        if (!event.relatedTarget) composer.classList.remove('dragging');
+    });
+    document.addEventListener('drop', event => {
+        if (currentMode !== 'send' || !Array.from(event.dataTransfer.types).includes('Files')) return;
+        event.preventDefault();
+        composer.classList.remove('dragging');
+        if (isShareBusy()) return;
+        const items = Array.from(event.dataTransfer.items || []);
+        if (items.some(item => item.webkitGetAsEntry?.()?.isDirectory)) {
+            return showToast('请添加文件；文件夹可以压缩后上传');
+        }
+        addAttachments(Array.from(event.dataTransfer.files || []));
     });
 });
 
-window.addEventListener('pageshow', () => {
+function isShareBusy() {
+    return document.getElementById('main-btn').disabled;
+}
+
+function focusCurrentInput() {
     if (document.getElementById('legal-modal').style.display === 'flex') return;
-    if (currentMode === 'text') document.getElementById('input-text-val').focus();
-    if (currentMode === 'receive') document.getElementById('input-code-val').focus();
-});
+    document.getElementById(currentMode === 'receive' ? 'input-code-val' : 'input-text-val').focus();
+}
+
+window.addEventListener('pageshow', focusCurrentInput);
 
 function closeLegalModal() {
     localStorage.setItem('legalAgreed', 'true');
     document.getElementById('legal-modal').style.display = 'none';
-    if (currentMode === 'text') document.getElementById('input-text-val').focus();
-    if (currentMode === 'receive') document.getElementById('input-code-val').focus();
+    focusCurrentInput();
 }
 
-// === 2. 模式切换逻辑 (核心交互) ===
 function setMode(mode) {
-    currentMode = mode;
+    if (isShareBusy()) return;
+    currentMode = mode === 'receive' ? 'receive' : 'send';
+    const receiving = currentMode === 'receive';
+    document.getElementById('area-send').hidden = receiving;
+    document.getElementById('area-receive').style.display = receiving ? 'block' : 'none';
+    document.getElementById('options-panel').style.display = receiving ? 'none' : 'flex';
+    document.getElementById('action-title').textContent = receiving ? '输入取件码提取内容' : '分享文字、图片和文件';
+    document.getElementById('main-btn').textContent = receiving ? '立即提取' : '生成取件码';
+    document.getElementById('result-panel').style.display = 'none';
+    document.getElementById('result-panel').replaceChildren();
+    document.getElementById('switch-area').innerHTML = receiving
+        ? '<button class="btn-submit mode-switch-btn" onclick="setMode(\'send\')">我要分享</button>'
+        : '<button class="btn-submit mode-switch-btn" onclick="setMode(\'receive\')">我要接收</button>';
+    focusCurrentInput();
+    if (receiving) document.getElementById('input-code-val').select();
+}
 
-    // A. 更新中间输入区域的显示/隐藏
-    document.getElementById('area-text').style.display = mode === 'text' ? 'block' : 'none';
-    document.getElementById('area-file').style.display = mode === 'file' ? 'block' : 'none';
-    document.getElementById('area-image').style.display = mode === 'image' ? 'block' : 'none';
-    document.getElementById('area-receive').style.display = mode === 'receive' ? 'block' : 'none';
+function insertShareText(text) {
+    const input = document.getElementById('input-text-val');
+    input.focus();
+    input.setRangeText(text, input.selectionStart, input.selectionEnd, 'end');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+}
 
-    // B. 控制“阅后即焚”选项的显示/隐藏
-    const optionsPanel = document.getElementById('options-panel');
-    if (optionsPanel) {
-        if (mode === 'receive') {
-            optionsPanel.style.display = 'none';
+function addAttachments(files) {
+    if (!files.length || isShareBusy()) return;
+    const combined = [...selectedAttachments, ...files];
+    if (combined.length > 20) return showToast('一次最多添加 20 个附件');
+    if (combined.reduce((sum, file) => sum + file.size, 0) > 200 * 1024 * 1024) {
+        return showToast('附件总大小不能超过 200MB');
+    }
+    selectedAttachments = combined;
+    renderAttachments();
+}
+
+function formatFileSize(size) {
+    return size >= 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)} MB`
+        : size >= 1024 ? `${(size / 1024).toFixed(1)} KB` : `${size} B`;
+}
+
+function renderAttachments() {
+    attachmentPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+    attachmentPreviewUrls = [];
+    const grid = document.getElementById('attachment-grid');
+    grid.replaceChildren();
+    document.getElementById('attachment-summary').textContent = selectedAttachments.length
+        ? `已添加 ${selectedAttachments.length} 个附件 · ${formatFileSize(selectedAttachments.reduce((sum, file) => sum + file.size, 0))}` : '';
+    selectedAttachments.forEach((file, index) => {
+        const card = document.createElement('div');
+        card.className = 'attachment-card image-preview-card';
+        if (/^image\/(png|jpeg|gif|webp|avif|bmp|x-icon)$/.test(file.type)) {
+            const image = document.createElement('img');
+            image.src = URL.createObjectURL(file);
+            attachmentPreviewUrls.push(image.src);
+            image.alt = file.name;
+            card.appendChild(image);
         } else {
-            optionsPanel.style.display = 'flex';
-            // 切换回发送模式时，默认重置为不勾选
-            const burnCheck = document.getElementById('burn-mode');
-            if(burnCheck) burnCheck.checked = false;
+            const icon = document.createElement('div');
+            icon.className = 'attachment-icon';
+            icon.textContent = '📄';
+            card.appendChild(icon);
         }
-    }
-
-    // C. 重置标题和按钮状态
-    const titleEl = document.getElementById('action-title');
-    const btnEl = document.getElementById('main-btn');
-    const resultEl = document.getElementById('result-panel');
-
-    resultEl.style.display = 'none'; 
-    resultEl.innerHTML = ''; 
-
-    if (mode === 'text') {
-        titleEl.textContent = '粘贴文本生成取件码';
-        btnEl.textContent = '生成接收码';
-    } else if (mode === 'file') {
-        titleEl.textContent = '上传文件生成取件码';
-        btnEl.textContent = '生成接收码';
-    } else if (mode === 'image') {
-        titleEl.textContent = '上传图片生成取件码';
-        btnEl.textContent = '生成接收码';
-    } else {
-        titleEl.textContent = '输入取件码提取内容';
-        btnEl.textContent = '立即提取';
-    }
-
-    // D. 更新底部快捷按钮
-    updateSwitchLinks(mode);
-
-    if (mode === 'text') {
-        document.getElementById('input-text-val').focus();
-    } else if (mode === 'receive') {
-        const codeInput = document.getElementById('input-code-val');
-        codeInput.focus();
-        codeInput.select();
-    }
+        const name = document.createElement('div');
+        name.className = 'attachment-name';
+        name.textContent = file.name;
+        name.title = file.name;
+        const size = document.createElement('div');
+        size.className = 'attachment-size';
+        size.textContent = formatFileSize(file.size);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'image-remove-btn';
+        remove.textContent = '×';
+        remove.title = '移除附件';
+        remove.setAttribute('aria-label', `移除第 ${index + 1} 个附件：${file.name}`);
+        remove.onclick = () => {
+            if (isShareBusy()) return;
+            selectedAttachments.splice(index, 1);
+            renderAttachments();
+            const buttons = grid.querySelectorAll('.image-remove-btn');
+            (buttons[Math.min(index, buttons.length - 1)] || document.getElementById('add-attachments')).focus();
+        };
+        card.append(name, size, remove);
+        grid.appendChild(card);
+    });
 }
 
-// 动态渲染快捷切换按钮
-function updateSwitchLinks(mode) {
-    const area = document.getElementById('switch-area');
-    if (!area) return;
-    
-    let html = '';
-    if (mode === 'text') {
-        html = `<button class="btn-submit mode-switch-btn" onclick="setMode('receive')">我要接收</button>
-                <button class="btn-submit mode-switch-btn" onclick="setMode('file')">分享文件</button>
-                <button class="btn-submit mode-switch-btn" onclick="setMode('image')">分享图片</button>`;
-    } else if (mode === 'file') {
-        html = `<button class="btn-submit mode-switch-btn" onclick="setMode('receive')">我要接收</button>
-                <button class="btn-submit mode-switch-btn" onclick="setMode('text')">分享文本</button>
-                <button class="btn-submit mode-switch-btn" onclick="setMode('image')">分享图片</button>`;
-    } else if (mode === 'image') {
-        html = `<button class="btn-submit mode-switch-btn" onclick="setMode('receive')">我要接收</button>
-                <button class="btn-submit mode-switch-btn" onclick="setMode('text')">分享文本</button>
-                <button class="btn-submit mode-switch-btn" onclick="setMode('file')">分享文件</button>`;
-    } else {
-        html = `<button class="btn-submit mode-switch-btn" onclick="setMode('text')">分享文本</button>
-                <button class="btn-submit mode-switch-btn" onclick="setMode('file')">分享文件</button>
-                <button class="btn-submit mode-switch-btn" onclick="setMode('image')">分享图片</button>`;
-    }
-    area.innerHTML = html;
-}
-
-// === 3. 文件名显示优化 ===
-function updateFileName(input) {
-    if (input.files && input.files[0]) {
-        document.getElementById('file-name-display').innerHTML = 
-            `<span style="color:var(--primary); font-weight:bold;">${input.files[0].name}</span>`;
-    }
-}
 // === [新增] 生成时间戳文件名 ===
 // 格式: 原文件名_YYYYMMDDHHmmss.后缀
 function getTimestampedFileName(originalName) {
@@ -189,12 +206,16 @@ function getTimestampedFileName(originalName) {
 }
 // === 4. 核心提交逻辑 (已更新) ===
 async function handleSubmit() {
+    if (isShareBusy()) return;
     const btn = document.getElementById('main-btn');
     const resultPanel = document.getElementById('result-panel');
     const burnModeEl = document.getElementById('burn-mode');
     
     // 锁定按钮
     btn.disabled = true;
+    document.getElementById('input-text-val').readOnly = true;
+    document.getElementById('add-attachments').disabled = true;
+    document.getElementById('btn-paste').disabled = true;
     btn.textContent = '处理中...';
     resultPanel.style.display = 'none';
     resultPanel.innerHTML = ''; 
@@ -203,59 +224,24 @@ async function handleSubmit() {
         let res, data;
         const isBurn = burnModeEl ? burnModeEl.checked : false;
 
-        // --- A. 发送文本 ---
-        if (currentMode === 'text') {
+        if (currentMode === 'send') {
             const text = document.getElementById('input-text-val').value;
-            if (!text) throw new Error("请输入文本内容");
-            if (text.length > 20000) throw new Error(`文本超长 (${text.length}/20000)`);
-
-            res = await fetch('/api/share/text', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text, burn: isBurn })
-            });
-        } 
-        // --- B. 发送文件 ---
-        else if (currentMode === 'file') {
-            const fileInput = document.getElementById('input-file-val');
-            if (!fileInput.files.length) throw new Error("请选择文件");
-            const file = fileInput.files[0];
-            
-            // 确认文件大小限制为 100MB
-            if (file.size > 100 * 1024 * 1024) throw new Error("文件超过 100MB 限制");
-
-            const formData = new FormData();
-            
-            // [核心修改] 生成带时间戳的新文件名
-            const newFileName = getTimestampedFileName(file.name);
-            
-            // append 的第三个参数可以指定文件名
-            // formData.append(name, blob, filename)
-            formData.append('file', file, newFileName); 
-            
-            formData.append('burn', isBurn.toString()); 
-
-            res = await fetch('/api/share/file', { method: 'POST', body: formData });
-        }
-        // --- C. 发送多张图片 ---
-        else if (currentMode === 'image') {
-            const imageInput = document.getElementById('input-image-val');
-            const images = Array.from(imageInput.files || []);
-            if (!images.length) throw new Error("请选择图片");
-            if (images.length > 20) throw new Error("一次最多选择 20 张图片");
-            if (images.some(file => !file.type.startsWith('image/'))) throw new Error("只能选择图片文件");
-            const totalSize = images.reduce((sum, file) => sum + file.size, 0);
-            if (totalSize > 100 * 1024 * 1024) throw new Error("图片总大小超过 100MB 限制");
-
-            const formData = new FormData();
-            images.forEach(file => formData.append('images', file, getTimestampedFileName(file.name)));
-            formData.append('burn', isBurn.toString());
-            res = await fetch('/api/share/images', { method: 'POST', body: formData });
-        }
-        // --- D. 接收内容 ---
-        else {
+            if (!text && !selectedAttachments.length) throw new Error('请输入文字或添加图片、文件');
+            if (text.length > 20000) throw new Error('文本超过 20000 字限制');
+            const totalSize = selectedAttachments.reduce((sum, file) => sum + file.size, 0);
+            if (totalSize > 200 * 1024 * 1024) throw new Error('附件总大小不能超过 200MB');
+            if (totalSize > 32 * 1024 * 1024) {
+                res = await uploadLargeShare(text, isBurn, selectedAttachments, btn);
+            } else {
+                const form = new FormData();
+                form.append('text', text);
+                form.append('burn', String(isBurn));
+                selectedAttachments.forEach(file => form.append('attachments', file, getTimestampedFileName(file.name)));
+                res = await fetch('/api/share/bundle', { method: 'POST', body: form });
+            }
+        } else {
             const code = document.getElementById('input-code-val').value;
-            if (!/^\d{4}$/.test(code)) throw new Error("请输入 4 位数字接收码");
+            if (!/^\d{4}$/.test(code)) throw new Error('请输入 4 位数字取件码');
             res = await fetch(`/api/get/${code}`);
         }
 
@@ -265,7 +251,9 @@ async function handleSubmit() {
         if (!res.ok) throw new Error(data.error || "操作失败");
         resultPanel.style.display = 'block';        
         if (currentMode === 'receive') {
-            if (data.type === 'text') {
+            if (data.type === 'bundle') {
+                renderReceivedBundle(data, resultPanel);
+            } else if (data.type === 'text') {
 
         copyToClipboard(data.content);
         
@@ -367,13 +355,58 @@ async function handleSubmit() {
 
     } catch (err) {
         resultPanel.style.display = 'block';
-        resultPanel.innerHTML = `<div style="color:#ef4444; font-weight:bold;">❌ ${err.message}</div>`;
-        if (currentMode === 'text') document.getElementById('input-text-val').focus();
+        resultPanel.textContent = `❌ ${err.message}`;
+        if (currentMode === 'send') document.getElementById('input-text-val').focus();
         if (currentMode === 'receive') document.getElementById('input-code-val').focus();
     } finally {
         btn.disabled = false;
+        document.getElementById('input-text-val').readOnly = false;
+        document.getElementById('add-attachments').disabled = false;
+        document.getElementById('btn-paste').disabled = false;
         if (currentMode === 'receive') btn.textContent = '立即提取';
-        else btn.textContent = '生成接收码';
+        else btn.textContent = '生成取件码';
+    }
+}
+
+async function uploadLargeShare(text, burn, files, button) {
+    const started = await fetch('/api/uploads', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, burn, files: files.map(file => ({
+            name: getTimestampedFileName(file.name), type: file.type, size: file.size,
+        })) }),
+    });
+    if (!started.ok) return started;
+    const { id, chunkBytes } = await started.json();
+    const total = files.reduce((sum, file) => sum + file.size, 0);
+    let uploaded = 0;
+    const requestWithRetry = async (url, options) => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const response = await fetch(url, options);
+                if (response.ok || (response.status < 500 && response.status !== 409) || attempt === 2) return response;
+            } catch (error) { if (attempt === 2) throw error; }
+            await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+        }
+    };
+    try {
+        for (let index = 0; index < files.length; index++) {
+            for (let offset = 0, chunk = 0; offset < files[index].size; offset += chunkBytes, chunk++) {
+                button.textContent = `上传中 ${Math.floor(uploaded / total * 100)}%`;
+                const body = files[index].slice(offset, offset + chunkBytes);
+                const response = await requestWithRetry(`/api/uploads/${id}/${index}/${chunk}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body,
+                });
+                if (!response.ok) throw new Error((await response.json()).error || '上传失败，请重试');
+                uploaded += body.size;
+            }
+        }
+        button.textContent = '上传完成，正在生成取件码...';
+        const completed = await requestWithRetry(`/api/uploads/${id}/complete`, { method: 'POST' });
+        if (!completed.ok) throw new Error((await completed.json()).error || '文件合并失败，请重试');
+        return completed;
+    } catch (error) {
+        await fetch(`/api/uploads/${id}`, { method: 'DELETE' }).catch(() => {});
+        throw error;
     }
 }
 
@@ -507,35 +540,88 @@ function showToast(message) {
 }
 // === [新增] 处理粘贴按钮点击 ===
 async function handlePaste() {
-    const textarea = document.getElementById('input-text-val');
-
+    if (isShareBusy()) return;
     try {
-        if (!window.isSecureContext || !navigator.clipboard?.readText) {
-            throw new Error('Clipboard API unavailable');
-        }
-
-        const text = await navigator.clipboard.readText();
-
-        if (!text) {
-            showToast('⚠️ 剪贴板是空的');
+        if (!navigator.clipboard?.read) {
+            insertShareText(await navigator.clipboard.readText());
             return;
         }
-
-        textarea.value = text;
-        showToast('✅ 已粘贴');
+        const items = await navigator.clipboard.read();
+        const files = [];
+        let text = '';
+        for (const item of items) {
+            const imageType = item.types.find(type => type.startsWith('image/'));
+            if (imageType) {
+                const blob = await item.getType(imageType);
+                files.push(new File([blob], `image.${imageType.split('/')[1]}`, { type: imageType }));
+            } else if (item.types.includes('text/plain')) {
+                text += await (await item.getType('text/plain')).text();
+            }
+        }
+        if (currentMode !== 'send' || isShareBusy()) return;
+        if (files.length) addAttachments(files);
+        else if (text) insertShareText(text);
+        else showToast('请复制内容后按 Ctrl+V；手机可长按输入框粘贴');
     } catch {
-        textarea.focus();
-        showToast('请长按文本框，选择“粘贴”');
+        focusCurrentInput();
+        showToast('请按 Ctrl+V；手机可长按输入框粘贴');
     }
 }
 
-// === [新增] 接收结果页的一键复制 ===
-function copyResultContent() {
-    const contentBox = document.getElementById('received-text-content');
-    if(contentBox) {
-        copyText(contentBox.innerText);
+function renderReceivedBundle(data, panel) {
+    panel.innerHTML = '<div class="received-heading">✅ 内容提取成功</div>';
+    if (data.burn) {
+        const hint = document.createElement('p');
+        hint.className = 'burn-hint';
+        hint.textContent = data.attachments.length ? '🔥 全部附件下载完成后自动销毁，图片预览不会触发销毁' : '🔥 此消息已销毁，无法再次查看';
+        panel.appendChild(hint);
     }
+    if (data.content) {
+        const button = document.createElement('button');
+        button.className = 'btn-mini-copy';
+        button.textContent = '复制文字';
+        button.onclick = copyResultContent;
+        const text = document.createElement('div');
+        text.id = 'received-text-content';
+        text.className = 'received-text';
+        text.textContent = data.content;
+        panel.append(button, text);
+    }
+    if (!data.attachments.length) return;
+    const grid = document.createElement('div');
+    grid.id = 'received-attachment-grid';
+    grid.className = 'attachment-grid';
+    data.attachments.forEach(file => {
+        const card = document.createElement('div');
+        card.className = 'attachment-card';
+        if (file.previewUrl) {
+            const image = document.createElement('img');
+            image.src = file.previewUrl;
+            image.alt = file.filename;
+            card.appendChild(image);
+        } else {
+            const icon = document.createElement('div');
+            icon.className = 'attachment-icon';
+            icon.textContent = '📄';
+            card.appendChild(icon);
+        }
+        const name = document.createElement('div');
+        name.className = 'attachment-name';
+        name.textContent = file.filename;
+        name.title = file.filename;
+        const size = document.createElement('div');
+        size.className = 'attachment-size';
+        size.textContent = formatFileSize(file.size);
+        const link = document.createElement('a');
+        link.href = file.downloadUrl;
+        link.download = file.filename;
+        link.textContent = '下载附件';
+        card.append(name, size, link);
+        grid.appendChild(card);
+    });
+    panel.appendChild(grid);
 }
+
 // === [新增] 接收文本后的复制按钮逻辑 ===
 function copyResultContent() {
     // 获取显示文本的容器
@@ -551,26 +637,4 @@ function copyResultContent() {
             }
         });
     }
-}
-
-let imagePreviewUrls = [];
-
-function updateImageSelection(input) {
-    imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
-    imagePreviewUrls = [];
-    const files = Array.from(input.files || []);
-    document.getElementById('image-name-display').textContent = files.length
-        ? `已选择 ${files.length} 张图片`
-        : '点击选择多张图片 或 拖拽至此';
-
-    const grid = document.getElementById('image-preview-grid');
-    grid.innerHTML = '';
-    files.forEach(file => {
-        const url = URL.createObjectURL(file);
-        imagePreviewUrls.push(url);
-        const img = document.createElement('img');
-        img.src = url;
-        img.alt = file.name;
-        grid.appendChild(img);
-    });
 }
